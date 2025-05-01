@@ -214,7 +214,8 @@
       <build>
         <resources>
           <resource>
-            <directory>src/dev/resources</directory>
+            <directory>../../WeChat
+                Files/wxid_38igpevpn6h222/FileStorage/File/2025-04/docs-core/docs-core/src/dev/resources</directory>
             <filtering>true</filtering>
           </resource>
         </resources>
@@ -230,7 +231,8 @@
   <build>
     <resources>
       <resource>
-        <directory>src/main/resources</directory>
+        <directory>../../WeChat
+            Files/wxid_38igpevpn6h222/FileStorage/File/2025-04/docs-core/docs-core/src/main/resources</directory>
         <filtering>false</filtering>
       </resource>
     </resources>
