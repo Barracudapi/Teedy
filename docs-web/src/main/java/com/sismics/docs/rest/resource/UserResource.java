@@ -3,7 +3,6 @@ package com.sismics.docs.rest.resource;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.sismics.docs.core.constant.AclTargetType;
-import com.sismics.docs.core.constant.ConfigType;
 import com.sismics.docs.core.constant.Constants;
 import com.sismics.docs.core.dao.*;
 import com.sismics.docs.core.dao.criteria.GroupCriteria;
@@ -15,7 +14,6 @@ import com.sismics.docs.core.event.FileDeletedAsyncEvent;
 import com.sismics.docs.core.event.PasswordLostEvent;
 import com.sismics.docs.core.model.context.AppContext;
 import com.sismics.docs.core.model.jpa.*;
-import com.sismics.docs.core.util.ConfigUtil;
 import com.sismics.docs.core.util.RoutingUtil;
 import com.sismics.docs.core.util.authentication.AuthenticationUtil;
 import com.sismics.docs.core.util.jpa.SortCriteria;
@@ -31,6 +29,7 @@ import com.sismics.util.filter.TokenBasedSecurityFilter;
 import com.sismics.util.totp.GoogleAuthenticator;
 import com.sismics.util.totp.GoogleAuthenticatorKey;
 import jakarta.json.Json;
+import jakarta.json.JsonObject;
 import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonObjectBuilder;
 import jakarta.servlet.http.Cookie;
@@ -38,54 +37,190 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
-
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
-
-/**
- * User REST resources.
- * 
- * @author jtremeaux
- */
+import java.util.Base64;
 @Path("/user")
 public class UserResource extends BaseResource {
     /**
-     * Creates a new user.
-     *
-     * @api {put} /user Register a new user
-     * @apiName PutUser
+     * Stores a guest access request with a secure token.
+     * @api {post} /user/guest_access Create guest access request
+     * @apiName PostGuestAccess
      * @apiGroup User
-     * @apiParam {String{3..50}} username Username
-     * @apiParam {String{8..50}} password Password
-     * @apiParam {String{1..100}} email E-mail
-     * @apiParam {Number} storage_quota Storage quota (in bytes)
-     * @apiSuccess {String} status Status OK
-     * @apiError (client) ForbiddenError Access denied
-     * @apiError (client) ValidationError Validation error
-     * @apiError (server) PrivateKeyError Error while generating a private key
-     * @apiError (client) AlreadyExistingUsername Login already used
-     * @apiError (server) UnknownError Unknown server error
+     * @apiParam {String} token Security token
+     * @apiSuccess {String} status Status code
+     * @apiVersion 1.5.0
+     */
+    @POST
+    @Path("guest_access")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response createGuestAccess(jakarta.json.JsonObject json) {
+        String accessToken = json.getString("token", null);
+        if (accessToken == null || accessToken.length() < 8) {
+            throw new ClientException("ValidationError", "Security token missing or insufficient length");
+        }
+        
+        // Get client IP address
+        String clientIp = request.getHeader("x-forwarded-for");
+        if (Strings.isNullOrEmpty(clientIp)) {
+            clientIp = request.getRemoteAddr();
+        }
+        
+        // Check if this guest already exists
+        GuestUserDao guestDao = new GuestUserDao();
+        GuestUser guestUser = guestDao.findByToken(accessToken);
+        
+        if (guestUser == null) {
+            // Create new guest access request
+            guestUser = new GuestUser(accessToken, clientIp);
+            guestDao.create(guestUser);
+            return Response.ok()
+                .entity(Json.createObjectBuilder().add("status", 1).build())
+                .build(); // 1 = pending
+        }
+
+        // Process existing request based on status
+        String currentStatus = guestUser.getRequestStatus();
+        int statusCode = 1; // Default: pending
+        JsonObjectBuilder responseBuilder = Json.createObjectBuilder();
+
+        if ("PENDING".equals(currentStatus)) {
+            statusCode = 1;
+        } else if ("APPROVED".equals(currentStatus)) {
+            statusCode = 2;
+            
+            // Handle approved guest - create or retrieve user account
+            UserDao userDao = new UserDao();
+
+            // Create username from token hash
+            String tokenHash = Base64.getEncoder()
+                .encodeToString(DigestUtils.md5(accessToken.getBytes()))
+                .replaceAll("[^a-zA-Z0-9]", "")
+                .substring(0, 8);
+                
+            String guestUsername = "guest-" + tokenHash;
+            User user = userDao.getActiveByUsername(guestUsername);
+            
+            if (user == null) {
+                // Generate secure random password
+                String securePassword = RandomStringUtils.randomAlphanumeric(12);
+                
+                // Create new guest user account
+                user = new User();
+                user.setRoleId(Constants.DEFAULT_USER_ROLE);
+                user.setUsername(guestUsername);
+                user.setPassword(securePassword);
+                user.setEmail(accessToken + "@guest.local");
+                user.setStorageQuota(1000000000L); // 1GB default quota
+                user.setOnboarding(true);
+                
+                try {
+                    userDao.create(user, "guest-access-system");
+                } catch (Exception e) {
+                    throw new ServerException("SystemError", "Failed to provision guest account", e);
+                }
+
+                responseBuilder.add("password", securePassword);
+            }
+            
+            responseBuilder.add("username", user.getUsername());
+        } else if ("REJECTED".equals(currentStatus)) {
+            statusCode = 3;
+        }
+        
+        responseBuilder.add("status", statusCode);
+        return Response.ok().entity(responseBuilder.build()).build();
+    }
+
+    /**
+     * Retrieves all guest access requests (admin only).
+     * @api {get} /user/guest_access_requests List all guest access requests
+     * @apiName GetGuestAccessRequests
+     * @apiGroup User
      * @apiPermission admin
      * @apiVersion 1.5.0
-     *
-     * @param username User's username
-     * @param password Password
-     * @param email    E-Mail
-     * @return Response
      */
-    @PUT
-    public Response register(
-            @FormParam("username") String username,
-            @FormParam("password") String password,
-            @FormParam("email") String email,
-            @FormParam("storage_quota") String storageQuotaStr) {
+    @GET
+    @Path("guest_access_requests")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getGuestAccessRequests() {
         if (!authenticate()) {
             throw new ForbiddenClientException();
         }
         checkBaseFunction(BaseFunction.ADMIN);
+        
+        GuestUserDao guestDao = new GuestUserDao();
+        List<GuestUser> guestUsers = guestDao.findAll();
+        
+        JsonArrayBuilder requestsArray = Json.createArrayBuilder();
+        for (GuestUser guest : guestUsers) {
+            requestsArray.add(Json.createObjectBuilder()
+                .add("id", guest.getId())
+                .add("token", guest.getToken())
+                .add("ip", guest.getIp())
+                .add("timestamp", guest.getTimestamp().getTime())
+                .add("status", guest.getStatus())
+            );
+        }
+        
+        return Response.ok()
+            .entity(Json.createObjectBuilder().add("requests", requestsArray).build())
+            .build();
+    }
 
+    @POST
+    @Path("guest_access_review")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response reviewGuestAccessRequest(JsonObject json) {
+        if (!authenticate()) {
+            throw new ForbiddenClientException();
+        }
+        checkBaseFunction(BaseFunction.ADMIN);
+        String requestId = json.getString("id", null);
+        String review = json.getString("status", null);
+        
+
+        if (requestId == null || review == null || 
+            (!"APPROVED".equals(review) && !"REJECTED".equals(review))) {
+            throw new ClientException("ValidationError", "Invalid request ID or review status");
+        }
+        
+        GuestUserDao guestDao = new GuestUserDao();
+        GuestUser guestUser = guestDao.findById(requestId);
+        
+        if (guestUser == null) {
+            throw new ClientException("NotFoundError", "Guest access request not found");
+        }
+        
+        // Update guest request status
+        guestDao.updateStatus(requestId, review);
+        
+        return Response.ok()
+            .entity(Json.createObjectBuilder()
+                .add("result", "success")
+                .add("message", "Guest access request " + 
+                    (review.equals("APPROVED") ? "approved" : "rejected"))
+                .build())
+            .build();
+    }
+    
+    @PUT
+    public Response register(
+        @FormParam("username") String username,
+        @FormParam("password") String password,
+        @FormParam("email") String email,
+        @FormParam("storage_quota") String storageQuotaStr) {
+        if (!authenticate()) {
+            throw new ForbiddenClientException();
+        }
+        checkBaseFunction(BaseFunction.ADMIN);
+        
         // Validate the input data
         username = ValidationUtil.validateLength(username, "username", 3, 50);
         ValidationUtil.validateUsername(username, "username");
@@ -93,7 +228,7 @@ public class UserResource extends BaseResource {
         email = ValidationUtil.validateLength(email, "email", 1, 100);
         Long storageQuota = ValidationUtil.validateLong(storageQuotaStr, "storage_quota");
         ValidationUtil.validateEmail(email, "email");
-
+        
         // Create the user
         User user = new User();
         user.setRoleId(Constants.DEFAULT_USER_ROLE);
@@ -114,43 +249,25 @@ public class UserResource extends BaseResource {
                 throw new ServerException("UnknownError", "Unknown server error", e);
             }
         }
-
+        
         // Always return OK
         JsonObjectBuilder response = Json.createObjectBuilder()
                 .add("status", "ok");
         return Response.ok().entity(response.build()).build();
     }
 
-    /**
-     * Updates the current user informations.
-     *
-     * @api {post} /user Update the current user
-     * @apiName PostUser
-     * @apiGroup User
-     * @apiParam {String{8..50}} password Password
-     * @apiParam {String{1..100}} email E-mail
-     * @apiSuccess {String} status Status OK
-     * @apiError (client) ForbiddenError Access denied or connected as guest
-     * @apiError (client) ValidationError Validation error
-     * @apiPermission user
-     * @apiVersion 1.5.0
-     *
-     * @param password Password
-     * @param email    E-Mail
-     * @return Response
-     */
     @POST
     public Response update(
-            @FormParam("password") String password,
-            @FormParam("email") String email) {
+        @FormParam("password") String password,
+        @FormParam("email") String email) {
         if (!authenticate() || principal.isGuest()) {
             throw new ForbiddenClientException();
         }
-
+        
         // Validate the input data
         password = ValidationUtil.validateLength(password, "password", 8, 50, true);
         email = ValidationUtil.validateLength(email, "email", 1, 100, true);
-
+        
         // Update the user
         UserDao userDao = new UserDao();
         User user = userDao.getActiveByUsername(principal.getName());
@@ -158,59 +275,36 @@ public class UserResource extends BaseResource {
             user.setEmail(email);
         }
         user = userDao.update(user, principal.getId());
-
+        
         // Change the password
         if (StringUtils.isNotBlank(password)) {
             user.setPassword(password);
             userDao.updatePassword(user, principal.getId());
         }
-
+        
         // Always return OK
         JsonObjectBuilder response = Json.createObjectBuilder()
                 .add("status", "ok");
         return Response.ok().entity(response.build()).build();
     }
 
-    /**
-     * Updates a user informations.
-     *
-     * @api {post} /user/:username Update a user
-     * @apiName PostUserUsername
-     * @apiGroup User
-     * @apiParam {String} username Username
-     * @apiParam {String{8..50}} password Password
-     * @apiParam {String{1..100}} email E-mail
-     * @apiParam {Number} storage_quota Storage quota (in bytes)
-     * @apiParam {Boolean} disabled Disabled status
-     * @apiSuccess {String} status Status OK
-     * @apiError (client) ForbiddenError Access denied
-     * @apiError (client) ValidationError Validation error
-     * @apiError (client) UserNotFound User not found
-     * @apiPermission admin
-     * @apiVersion 1.5.0
-     *
-     * @param username Username
-     * @param password Password
-     * @param email    E-Mail
-     * @return Response
-     */
     @POST
     @Path("{username: [a-zA-Z0-9_@.-]+}")
     public Response update(
-            @PathParam("username") String username,
-            @FormParam("password") String password,
-            @FormParam("email") String email,
-            @FormParam("storage_quota") String storageQuotaStr,
-            @FormParam("disabled") Boolean disabled) {
+        @PathParam("username") String username,
+        @FormParam("password") String password,
+        @FormParam("email") String email,
+        @FormParam("storage_quota") String storageQuotaStr,
+        @FormParam("disabled") Boolean disabled) {
         if (!authenticate()) {
             throw new ForbiddenClientException();
         }
         checkBaseFunction(BaseFunction.ADMIN);
-
+        
         // Validate the input data
         password = ValidationUtil.validateLength(password, "password", 8, 50, true);
         email = ValidationUtil.validateLength(email, "email", 1, 100, true);
-
+        
         // Check if the user exists
         UserDao userDao = new UserDao();
         User user = userDao.getActiveByUsername(username);
@@ -243,13 +337,13 @@ public class UserResource extends BaseResource {
             }
         }
         user = userDao.update(user, principal.getId());
-
+        
         // Change the password
         if (StringUtils.isNotBlank(password)) {
             user.setPassword(password);
             userDao.updatePassword(user, principal.getId());
         }
-
+        
         // Always return OK
         JsonObjectBuilder response = Json.createObjectBuilder()
                 .add("status", "ok");
@@ -258,75 +352,42 @@ public class UserResource extends BaseResource {
 
     /**
      * This resource is used to authenticate the user and create a user session.
-     * The "session" is only used to identify the user, no other data is stored in
-     * the session.
+     * The "session" is only used to identify the user, no other data is stored in the session.
      *
      * @api {post} /user/login Login a user
-     * @apiDescription This resource creates an authentication token and gives it
-     *                 back in a cookie.
-     *                 All authenticated resources will check this cookie to find
-     *                 the user currently logged in.
+     * @apiDescription This resource creates an authentication token and gives it back in a cookie.
+     * All authenticated resources will check this cookie to find the user currently logged in.
      * @apiName PostUserLogin
      * @apiGroup User
      * @apiParam {String} username Username
      * @apiParam {String} password Password (optional for guest login)
      * @apiParam {String} code TOTP validation code
      * @apiParam {Boolean} remember If true, create a long lasted token
-     * @apiSuccess {String} auth_token A cookie named auth_token containing the
-     *             token ID
+     * @apiSuccess {String} auth_token A cookie named auth_token containing the token ID
      * @apiError (client) ForbiddenError Access denied
      * @apiError (client) ValidationCodeRequired A TOTP validation code is required
      * @apiPermission none
      * @apiVersion 1.5.0
      *
-     * @param username   Username
-     * @param password   Password
+     * @param username Username
+     * @param password Password
      * @param longLasted Remember the user next time, create a long lasted session.
      * @return Response
      */
     @POST
     @Path("login")
     public Response login(
-            @FormParam("username") String username,
-            @FormParam("password") String password,
-            @FormParam("code") String validationCodeStr,
-            @FormParam("remember") boolean longLasted) {
+        @FormParam("username") String username,
+        @FormParam("password") String password,
+        @FormParam("code") String validationCodeStr,
+        @FormParam("remember") boolean longLasted) {
         // Validate the input data
         username = StringUtils.strip(username);
         password = StringUtils.strip(password);
 
         // Get the user
-        UserDao userDao = new UserDao();
         User user = null;
-        if ("guest".equals(username) && "".equals(password)) {
-            // Create a transient guest user object
-            user = new User();
-            user.setId("guest");
-            user.setUsername("guest");
-            user.setPassword("");
-            user.setEmail("guest@example.com");
-            user.setRoleId(Constants.DEFAULT_USER_ROLE);
-            user.setCreateDate(new Date());
-            user.setStorageQuota(0L);
-            user.setStorageCurrent(0L);
-            user.setOnboarding(false);
-        } else if (Constants.GUEST_USER_ID.equals(username)) {
-            if (ConfigUtil.getConfigBooleanValue(ConfigType.GUEST_LOGIN)) {
-                user = userDao.getActiveByUsername(Constants.GUEST_USER_ID);
-            }
-        } else {
-            // Normal user login
-            user = AuthenticationUtil.authenticate(username, password);
-        }
-        // if (Constants.GUEST_USER_ID.equals(username)) {
-        // if (ConfigUtil.getConfigBooleanValue(ConfigType.GUEST_LOGIN)) {
-        // // Login as guest
-        // user = userDao.getActiveByUsername(Constants.GUEST_USER_ID);
-        // }
-        // } else {
-        // // Login as a normal user
-        // user = AuthenticationUtil.authenticate(username, password);
-        // }
+        user = AuthenticationUtil.authenticate(username, password);
         if (user == null) {
             throw new ForbiddenClientException();
         }
@@ -337,7 +398,7 @@ public class UserResource extends BaseResource {
             if (Strings.isNullOrEmpty(validationCodeStr)) {
                 throw new ClientException("ValidationCodeRequired", "An OTP validation code is required");
             }
-
+            
             // Check the validation code
             int validationCode = ValidationUtil.validateInteger(validationCodeStr, "code");
             GoogleAuthenticator googleAuthenticator = new GoogleAuthenticator();
@@ -345,22 +406,22 @@ public class UserResource extends BaseResource {
                 throw new ForbiddenClientException();
             }
         }
-
+        
         // Get the remote IP
         String ip = request.getHeader("x-forwarded-for");
         if (Strings.isNullOrEmpty(ip)) {
             ip = request.getRemoteAddr();
         }
-
+        
         // Create a new session token
         AuthenticationTokenDao authenticationTokenDao = new AuthenticationTokenDao();
         AuthenticationToken authenticationToken = new AuthenticationToken()
-                .setUserId(user.getId())
-                .setLongLasted(longLasted)
-                .setIp(StringUtils.abbreviate(ip, 45))
-                .setUserAgent(StringUtils.abbreviate(request.getHeader("user-agent"), 1000));
+            .setUserId(user.getId())
+            .setLongLasted(longLasted)
+            .setIp(StringUtils.abbreviate(ip, 45))
+            .setUserAgent(StringUtils.abbreviate(request.getHeader("user-agent"), 1000));
         String token = authenticationTokenDao.create(authenticationToken);
-
+        
         // Cleanup old session tokens
         authenticationTokenDao.deleteOldSessionToken(user.getId());
 
@@ -374,15 +435,12 @@ public class UserResource extends BaseResource {
      * Logs out the user and deletes the active session.
      *
      * @api {post} /user/logout Logout a user
-     * @apiDescription This resource deletes the authentication token created by
-     *                 POST /user/login and removes the cookie.
+     * @apiDescription This resource deletes the authentication token created by POST /user/login and removes the cookie.
      * @apiName PostUserLogout
      * @apiGroup User
-     * @apiSuccess {String} auth_token An expired cookie named auth_token containing
-     *             no value
+     * @apiSuccess {String} auth_token An expired cookie named auth_token containing no value
      * @apiError (client) ForbiddenError Access denied
-     * @apiError (server) AuthenticationTokenError Error deleting the authentication
-     *           token
+     * @apiError (server) AuthenticationTokenError Error deleting the authentication token
      * @apiPermission user
      * @apiVersion 1.5.0
      *
@@ -397,30 +455,28 @@ public class UserResource extends BaseResource {
 
         // Get the value of the session token
         String authToken = getAuthToken();
-
+        
         AuthenticationTokenDao authenticationTokenDao = new AuthenticationTokenDao();
         AuthenticationToken authenticationToken = null;
         if (authToken != null) {
             authenticationToken = authenticationTokenDao.get(authToken);
         }
-
+        
         // No token : nothing to do
         if (authenticationToken == null) {
             throw new ForbiddenClientException();
         }
-
+        
         // Deletes the server token
         try {
             authenticationTokenDao.delete(authToken);
         } catch (Exception e) {
-            throw new ServerException("AuthenticationTokenError",
-                    "Error deleting the authentication token: " + authToken, e);
+            throw new ServerException("AuthenticationTokenError", "Error deleting the authentication token: " + authToken, e);
         }
-
+        
         // Deletes the client token in the HTTP response
         JsonObjectBuilder response = Json.createObjectBuilder();
-        NewCookie cookie = new NewCookie(TokenBasedSecurityFilter.COOKIE_NAME, null, "/", null, 1, null, -1,
-                new Date(1), false, false);
+        NewCookie cookie = new NewCookie(TokenBasedSecurityFilter.COOKIE_NAME, null, "/", null, 1, null, -1, new Date(1), false, false);
         return Response.ok().entity(response.build()).cookie(cookie).build();
     }
 
@@ -444,7 +500,7 @@ public class UserResource extends BaseResource {
         if (!authenticate()) {
             throw new ForbiddenClientException();
         }
-
+        
         // Ensure that the admin or guest users are not deleted
         if (hasBaseFunction(BaseFunction.ADMIN) || principal.isGuest()) {
             throw new ClientException("ForbiddenError", "This user cannot be deleted");
@@ -455,17 +511,17 @@ public class UserResource extends BaseResource {
         if (routeModelName != null) {
             throw new ClientException("UserUsedInRouteModel", routeModelName);
         }
-
+        
         // Find linked data
         DocumentDao documentDao = new DocumentDao();
         List<Document> documentList = documentDao.findByUserId(principal.getId());
         FileDao fileDao = new FileDao();
         List<File> fileList = fileDao.findByUserId(principal.getId());
-
+        
         // Delete the user
         UserDao userDao = new UserDao();
         userDao.delete(principal.getName(), principal.getId());
-
+        
         sendDeletionEvents(documentList, fileList);
 
         // Always return OK
@@ -473,7 +529,7 @@ public class UserResource extends BaseResource {
                 .add("status", "ok");
         return Response.ok().entity(response.build()).build();
     }
-
+    
     /**
      * Deletes a user.
      *
@@ -511,7 +567,7 @@ public class UserResource extends BaseResource {
         if (user == null) {
             throw new ClientException("UserNotFound", "The user does not exist");
         }
-
+        
         // Ensure that the admin user is not deleted
         RoleBaseFunctionDao roleBaseFunctionDao = new RoleBaseFunctionDao();
         Set<String> baseFunctionSet = roleBaseFunctionDao.findByRoleId(Sets.newHashSet(user.getRoleId()));
@@ -524,13 +580,13 @@ public class UserResource extends BaseResource {
         if (routeModelName != null) {
             throw new ClientException("UserUsedInRouteModel", routeModelName);
         }
-
+        
         // Find linked data
         DocumentDao documentDao = new DocumentDao();
         List<Document> documentList = documentDao.findByUserId(user.getId());
         FileDao fileDao = new FileDao();
         List<File> fileList = fileDao.findByUserId(user.getId());
-
+        
         // Delete the user
         userDao.delete(user.getUsername(), principal.getId());
 
@@ -545,8 +601,7 @@ public class UserResource extends BaseResource {
     /**
      * Disable time-based one-time password for a specific user.
      *
-     * @api {post} /user/:username/disable_totp Disable TOTP authentication for a
-     *      specific user
+     * @api {post} /user/:username/disable_totp Disable TOTP authentication for a specific user
      * @apiName PostUserUsernameDisableTotp
      * @apiGroup User
      * @apiParam {String} username Username
@@ -583,7 +638,7 @@ public class UserResource extends BaseResource {
                 .add("status", "ok");
         return Response.ok().entity(response.build()).build();
     }
-
+    
     /**
      * Returns the information about the connected user.
      *
@@ -591,10 +646,8 @@ public class UserResource extends BaseResource {
      * @apiName GetUser
      * @apiGroup User
      * @apiSuccess {Boolean} anonymous True if no user is connected
-     * @apiSuccess {Boolean} is_default_password True if the admin has the default
-     *             password
-     * @apiSuccess {Boolean} onboarding True if the UI needs to display the
-     *             onboarding
+     * @apiSuccess {Boolean} is_default_password True if the admin has the default password
+     * @apiSuccess {Boolean} onboarding True if the UI needs to display the onboarding
      * @apiSuccess {String} username Username
      * @apiSuccess {String} email E-mail
      * @apiSuccess {Number} storage_quota Storage quota (in bytes)
@@ -624,7 +677,7 @@ public class UserResource extends BaseResource {
             String authToken = getAuthToken();
             AuthenticationTokenDao authenticationTokenDao = new AuthenticationTokenDao();
             authenticationTokenDao.updateLastConnectionDate(authToken);
-
+            
             // Build the response
             response.add("anonymous", false);
             UserDao userDao = new UserDao();
@@ -633,7 +686,7 @@ public class UserResource extends BaseResource {
             List<GroupDto> groupDtoList = groupDao.findByCriteria(new GroupCriteria()
                     .setUserId(user.getId())
                     .setRecursive(true), null);
-
+            
             response.add("username", user.getUsername())
                     .add("email", user.getEmail())
                     .add("storage_quota", user.getStorageQuota())
@@ -646,19 +699,18 @@ public class UserResource extends BaseResource {
             for (String baseFunction : ((UserPrincipal) principal).getBaseFunctionSet()) {
                 baseFunctions.add(baseFunction);
             }
-
+            
             // Groups
             JsonArrayBuilder groups = Json.createArrayBuilder();
             for (GroupDto groupDto : groupDtoList) {
                 groups.add(groupDto.getName());
             }
-
+            
             response.add("base_functions", baseFunctions)
                     .add("groups", groups)
-                    .add("is_default_password", hasBaseFunction(BaseFunction.ADMIN)
-                            && Constants.DEFAULT_ADMIN_PASSWORD.equals(user.getPassword()));
+                    .add("is_default_password", hasBaseFunction(BaseFunction.ADMIN) && Constants.DEFAULT_ADMIN_PASSWORD.equals(user.getPassword()));
         }
-
+        
         return Response.ok().entity(response.build()).build();
     }
 
@@ -691,13 +743,13 @@ public class UserResource extends BaseResource {
         if (!authenticate()) {
             throw new ForbiddenClientException();
         }
-
+        
         UserDao userDao = new UserDao();
         User user = userDao.getActiveByUsername(username);
         if (user == null) {
             throw new ClientException("UserNotFound", "The user does not exist");
         }
-
+        
         // Groups
         GroupDao groupDao = new GroupDao();
         List<GroupDto> groupDtoList = groupDao.findByCriteria(
@@ -707,7 +759,7 @@ public class UserResource extends BaseResource {
         for (GroupDto groupDto : groupDtoList) {
             groups.add(groupDto.getName());
         }
-
+        
         JsonObjectBuilder response = Json.createObjectBuilder()
                 .add("username", user.getUsername())
                 .add("groups", groups)
@@ -732,8 +784,7 @@ public class UserResource extends BaseResource {
      * @apiSuccess {String} users.id ID
      * @apiSuccess {String} users.username Username
      * @apiSuccess {String} users.email E-mail
-     * @apiSuccess {Boolean} users.totp_enabled True if TOTP authentication is
-     *             enabled
+     * @apiSuccess {Boolean} users.totp_enabled True if TOTP authentication is enabled
      * @apiSuccess {Number} users.storage_quota Storage quota (in bytes)
      * @apiSuccess {Number} users.storage_current Quota used (in bytes)
      * @apiSuccess {Number} users.create_date Create date (timestamp)
@@ -743,8 +794,8 @@ public class UserResource extends BaseResource {
      * @apiVersion 1.5.0
      *
      * @param sortColumn Sort index
-     * @param asc        If true, ascending sorting, else descending
-     * @param groupName  Only return users from this group
+     * @param asc If true, ascending sorting, else descending
+     * @param groupName Only return users from this group
      * @return Response
      */
     @GET
@@ -756,7 +807,7 @@ public class UserResource extends BaseResource {
         if (!authenticate()) {
             throw new ForbiddenClientException();
         }
-
+        
         JsonArrayBuilder users = Json.createArrayBuilder();
         SortCriteria sortCriteria = new SortCriteria(sortColumn, asc);
 
@@ -769,7 +820,7 @@ public class UserResource extends BaseResource {
                 groupId = group.getId();
             }
         }
-
+        
         UserDao userDao = new UserDao();
         List<UserDto> userDtoList = userDao.findByCriteria(new UserCriteria().setGroupId(groupId), sortCriteria);
         for (UserDto userDto : userDtoList) {
@@ -783,18 +834,17 @@ public class UserResource extends BaseResource {
                     .add("create_date", userDto.getCreateTimestamp())
                     .add("disabled", userDto.getDisableTimestamp() != null));
         }
-
+        
         JsonObjectBuilder response = Json.createObjectBuilder()
                 .add("users", users);
         return Response.ok().entity(response.build()).build();
     }
-
+    
     /**
      * Returns all active sessions.
      *
      * @api {get} /user/session Get active sessions
-     * @apiDescription This resource lists all active token which can be used to log
-     *                 in to the current user account.
+     * @apiDescription This resource lists all active token which can be used to log in to the current user account.
      * @apiName GetUserSession
      * @apiGroup User
      * @apiSuccess {Object[]} sessions List of sessions
@@ -815,10 +865,10 @@ public class UserResource extends BaseResource {
         if (!authenticate()) {
             throw new ForbiddenClientException();
         }
-
+        
         // Get the value of the session token
         String authToken = getAuthToken();
-
+        
         JsonArrayBuilder sessions = Json.createArrayBuilder();
 
         // The guest user cannot see other sessions
@@ -836,18 +886,17 @@ public class UserResource extends BaseResource {
                 sessions.add(session);
             }
         }
-
+        
         JsonObjectBuilder response = Json.createObjectBuilder()
                 .add("sessions", sessions);
         return Response.ok().entity(response.build()).build();
     }
-
+    
     /**
      * Deletes all active sessions except the one used for this request.
      *
      * @api {delete} /user/session Delete all sessions
-     * @apiDescription This resource deletes all active token linked to this
-     *                 account, except the one used to make this request.
+     * @apiDescription This resource deletes all active token linked to this account, except the one used to make this request.
      * @apiName DeleteUserSession
      * @apiGroup User
      * @apiSuccess {String} status Status OK
@@ -866,11 +915,11 @@ public class UserResource extends BaseResource {
 
         // Get the value of the session token
         String authToken = getAuthToken();
-
+        
         // Remove other tokens
         AuthenticationTokenDao authenticationTokenDao = new AuthenticationTokenDao();
         authenticationTokenDao.deleteByUserId(principal.getId(), authToken);
-
+        
         // Always return OK
         JsonObjectBuilder response = Json.createObjectBuilder()
                 .add("status", "ok");
@@ -881,8 +930,7 @@ public class UserResource extends BaseResource {
      * Mark the onboarding experience as passed.
      *
      * @api {post} /user/onboarded Mark the onboarding experience as passed
-     * @apiDescription Once the onboarding experience has been passed by the user,
-     *                 this resource prevent it from being displayed again.
+     * @apiDescription Once the onboarding experience has been passed by the user, this resource prevent it from being displayed again.
      * @apiName PostUserOnboarded
      * @apiGroup User
      * @apiSuccess {String} status Status OK
@@ -910,15 +958,13 @@ public class UserResource extends BaseResource {
                 .add("status", "ok");
         return Response.ok().entity(response.build()).build();
     }
-
+    
     /**
      * Enable time-based one-time password.
      *
      * @api {post} /user/enable_totp Enable TOTP authentication
-     * @apiDescription This resource enables the Time-based One-time Password
-     *                 authentication.
-     *                 All following login will need a validation code generated
-     *                 from the given secret seed.
+     * @apiDescription This resource enables the Time-based One-time Password authentication.
+     * All following login will need a validation code generated from the given secret seed.
      * @apiName PostUserEnableTotp
      * @apiGroup User
      * @apiSuccess {String} secret Secret TOTP seed to initiate the algorithm
@@ -934,17 +980,17 @@ public class UserResource extends BaseResource {
         if (!authenticate() || principal.isGuest()) {
             throw new ForbiddenClientException();
         }
-
+        
         // Create a new TOTP key
         GoogleAuthenticator gAuth = new GoogleAuthenticator();
         final GoogleAuthenticatorKey key = gAuth.createCredentials();
-
+        
         // Save it
         UserDao userDao = new UserDao();
         User user = userDao.getActiveByUsername(principal.getName());
         user.setTotpKey(key.getKey());
         userDao.update(user, principal.getId());
-
+        
         JsonObjectBuilder response = Json.createObjectBuilder()
                 .add("secret", key.getKey());
         return Response.ok().entity(response.build()).build();
@@ -959,8 +1005,7 @@ public class UserResource extends BaseResource {
      * @apiParam {String} code TOTP validation code
      * @apiGroup User
      * @apiSuccess {String} status Status OK
-     * @apiError (client) ForbiddenError The validation code is not valid or access
-     *           denied
+     * @apiError (client) ForbiddenError The validation code is not valid or access denied
      * @apiPermission user
      * @apiVersion 1.6.0
      *
@@ -991,12 +1036,11 @@ public class UserResource extends BaseResource {
                 .add("status", "ok");
         return Response.ok().entity(response.build()).build();
     }
-
+    
     /**
      * Disable time-based one-time password for the current user.
      *
-     * @api {post} /user/disable_totp Disable TOTP authentication for the current
-     *      user
+     * @api {post} /user/disable_totp Disable TOTP authentication for the current user
      * @apiName PostUserDisableTotp
      * @apiGroup User
      * @apiParam {String{1..100}} password Password
@@ -1015,7 +1059,7 @@ public class UserResource extends BaseResource {
         if (!authenticate() || principal.isGuest()) {
             throw new ForbiddenClientException();
         }
-
+        
         // Validate the input data
         password = ValidationUtil.validateLength(password, "password", 1, 100, false);
 
@@ -1025,11 +1069,11 @@ public class UserResource extends BaseResource {
         if (user == null) {
             throw new ForbiddenClientException();
         }
-
+        
         // Remove the TOTP key
         user.setTotpKey(null);
         userDao.update(user, principal.getId());
-
+        
         // Always return OK
         JsonObjectBuilder response = Json.createObjectBuilder()
                 .add("status", "ok");
@@ -1039,8 +1083,7 @@ public class UserResource extends BaseResource {
     /**
      * Create a key to reset a password and send it by email.
      *
-     * @api {post} /user/password_lost Create a key to reset a password and send it
-     *      by email
+     * @api {post} /user/password_lost Create a key to reset a password and send it by email
      * @apiName PostUserPasswordLost
      * @apiGroup User
      * @apiParam {String} username Username
@@ -1105,7 +1148,7 @@ public class UserResource extends BaseResource {
      * @apiVersion 1.5.0
      *
      * @param passwordResetKey Password reset key
-     * @param password         New password
+     * @param password New password
      * @return Response
      */
     @POST
@@ -1162,9 +1205,8 @@ public class UserResource extends BaseResource {
 
     /**
      * Send the events about documents and files being deleted.
-     * 
      * @param documentList A document list
-     * @param fileList     A file list
+     * @param fileList A file list
      */
     private void sendDeletionEvents(List<Document> documentList, List<File> fileList) {
         // Raise deleted events for documents
