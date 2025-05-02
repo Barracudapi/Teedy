@@ -214,8 +214,7 @@
       <build>
         <resources>
           <resource>
-            <directory>../../WeChat
-                Files/wxid_38igpevpn6h222/FileStorage/File/2025-04/docs-core/docs-core/src/dev/resources</directory>
+            <directory>src/dev/resources</directory>
             <filtering>true</filtering>
           </resource>
         </resources>
@@ -231,11 +230,40 @@
   <build>
     <resources>
       <resource>
-        <directory>../../WeChat
-            Files/wxid_38igpevpn6h222/FileStorage/File/2025-04/docs-core/docs-core/src/main/resources</directory>
+        <directory>src/main/resources</directory>
         <filtering>false</filtering>
       </resource>
     </resources>
+
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-site-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+      </plugin>
+    </plugins>
   </build>
+
+  <reporting>
+    <outputDirectory>${basedir}/target/site</outputDirectory>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-project-info-reports-plugin</artifactId>
+        <reportSets>
+          <reportSet>
+            <reports>
+              <report>index</report>
+              <report>dependencies</report>
+              <report>summary</report>
+            </reports>
+          </reportSet>
+        </reportSets>
+      </plugin>
+    </plugins>
+  </reporting>
 
 </project>
