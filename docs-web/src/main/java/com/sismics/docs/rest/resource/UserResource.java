@@ -3,7 +3,6 @@ package com.sismics.docs.rest.resource;
 import com.google.common.base.Strings;
 import com.google.common.collect.Sets;
 import com.sismics.docs.core.constant.AclTargetType;
-import com.sismics.docs.core.constant.ConfigType;
 import com.sismics.docs.core.constant.Constants;
 import com.sismics.docs.core.dao.*;
 import com.sismics.docs.core.dao.criteria.GroupCriteria;
@@ -15,7 +14,6 @@ import com.sismics.docs.core.event.FileDeletedAsyncEvent;
 import com.sismics.docs.core.event.PasswordLostEvent;
 import com.sismics.docs.core.model.context.AppContext;
 import com.sismics.docs.core.model.jpa.*;
-import com.sismics.docs.core.util.ConfigUtil;
 import com.sismics.docs.core.util.RoutingUtil;
 import com.sismics.docs.core.util.authentication.AuthenticationUtil;
 import com.sismics.docs.core.util.jpa.SortCriteria;
@@ -31,6 +29,7 @@ import com.sismics.util.filter.TokenBasedSecurityFilter;
 import com.sismics.util.totp.GoogleAuthenticator;
 import com.sismics.util.totp.GoogleAuthenticatorKey;
 import jakarta.json.Json;
+import jakarta.json.JsonObject;
 import jakarta.json.JsonArrayBuilder;
 import jakarta.json.JsonObjectBuilder;
 import jakarta.servlet.http.Cookie;
@@ -38,43 +37,179 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.NewCookie;
 import jakarta.ws.rs.core.Response;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
-
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
-
-/**
- * User REST resources.
- * 
- * @author jtremeaux
- */
+import java.util.Base64;
 @Path("/user")
 public class UserResource extends BaseResource {
     /**
-     * Creates a new user.
-     *
-     * @api {put} /user Register a new user
-     * @apiName PutUser
+     * Stores a guest access request with a secure token.
+     * @api {post} /user/guest_access Create guest access request
+     * @apiName PostGuestAccess
      * @apiGroup User
-     * @apiParam {String{3..50}} username Username
-     * @apiParam {String{8..50}} password Password
-     * @apiParam {String{1..100}} email E-mail
-     * @apiParam {Number} storage_quota Storage quota (in bytes)
-     * @apiSuccess {String} status Status OK
-     * @apiError (client) ForbiddenError Access denied
-     * @apiError (client) ValidationError Validation error
-     * @apiError (server) PrivateKeyError Error while generating a private key
-     * @apiError (client) AlreadyExistingUsername Login already used
-     * @apiError (server) UnknownError Unknown server error
+     * @apiParam {String} token Security token
+     * @apiSuccess {String} status Status code
+     * @apiVersion 1.5.0
+     */
+    @POST
+    @Path("guest_access")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response createGuestAccess(jakarta.json.JsonObject json) {
+        String accessToken = json.getString("token", null);
+        if (accessToken == null || accessToken.length() < 8) {
+            throw new ClientException("ValidationError", "Security token missing or insufficient length");
+        }
+        
+        // Get client IP address
+        String clientIp = request.getHeader("x-forwarded-for");
+        if (Strings.isNullOrEmpty(clientIp)) {
+            clientIp = request.getRemoteAddr();
+        }
+        
+        // Check if this guest already exists
+        GuestUserDao guestDao = new GuestUserDao();
+        GuestUser guestUser = guestDao.findByToken(accessToken);
+        
+        if (guestUser == null) {
+            // Create new guest access request
+            guestUser = new GuestUser(accessToken, clientIp);
+            guestDao.create(guestUser);
+            return Response.ok()
+                .entity(Json.createObjectBuilder().add("status", 1).build())
+                .build(); // 1 = pending
+        }
+
+        // Process existing request based on status
+        String currentStatus = guestUser.getRequestStatus();
+        int statusCode = 1; // Default: pending
+        JsonObjectBuilder responseBuilder = Json.createObjectBuilder();
+
+        if ("PENDING".equals(currentStatus)) {
+            statusCode = 1;
+        } else if ("APPROVED".equals(currentStatus)) {
+            statusCode = 2;
+            
+            // Handle approved guest - create or retrieve user account
+            UserDao userDao = new UserDao();
+
+            // Create username from token hash
+            String tokenHash = Base64.getEncoder()
+                .encodeToString(DigestUtils.md5(accessToken.getBytes()))
+                .replaceAll("[^a-zA-Z0-9]", "")
+                .substring(0, 8);
+                
+            String guestUsername = "guest-" + tokenHash;
+            User user = userDao.getActiveByUsername(guestUsername);
+            
+            if (user == null) {
+                // Generate secure random password
+                String securePassword = RandomStringUtils.randomAlphanumeric(12);
+                
+                // Create new guest user account
+                user = new User();
+                user.setRoleId(Constants.DEFAULT_USER_ROLE);
+                user.setUsername(guestUsername);
+                user.setPassword(securePassword);
+                user.setEmail(accessToken + "@guest.local");
+                user.setStorageQuota(1000000000L); // 1GB default quota
+                user.setOnboarding(true);
+                
+                try {
+                    userDao.create(user, "guest-access-system");
+                } catch (Exception e) {
+                    throw new ServerException("SystemError", "Failed to provision guest account", e);
+                }
+
+                responseBuilder.add("password", securePassword);
+            }
+            
+            responseBuilder.add("username", user.getUsername());
+        } else if ("REJECTED".equals(currentStatus)) {
+            statusCode = 3;
+        }
+        
+        responseBuilder.add("status", statusCode);
+        return Response.ok().entity(responseBuilder.build()).build();
+    }
+
+    /**
+     * Retrieves all guest access requests (admin only).
+     * @api {get} /user/guest_access_requests List all guest access requests
+     * @apiName GetGuestAccessRequests
+     * @apiGroup User
      * @apiPermission admin
      * @apiVersion 1.5.0
-     *
-     * @param username User's username
-     * @param password Password
-     * @param email E-Mail
-     * @return Response
      */
+    @GET
+    @Path("guest_access_requests")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getGuestAccessRequests() {
+        if (!authenticate()) {
+            throw new ForbiddenClientException();
+        }
+        checkBaseFunction(BaseFunction.ADMIN);
+        
+        GuestUserDao guestDao = new GuestUserDao();
+        List<GuestUser> guestUsers = guestDao.findAll();
+        
+        JsonArrayBuilder requestsArray = Json.createArrayBuilder();
+        for (GuestUser guest : guestUsers) {
+            requestsArray.add(Json.createObjectBuilder()
+                .add("id", guest.getId())
+                .add("token", guest.getToken())
+                .add("ip", guest.getIp())
+                .add("timestamp", guest.getTimestamp().getTime())
+                .add("status", guest.getStatus())
+            );
+        }
+        
+        return Response.ok()
+            .entity(Json.createObjectBuilder().add("requests", requestsArray).build())
+            .build();
+    }
+
+    @POST
+    @Path("guest_access_review")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response reviewGuestAccessRequest(JsonObject json) {
+        if (!authenticate()) {
+            throw new ForbiddenClientException();
+        }
+        checkBaseFunction(BaseFunction.ADMIN);
+        String requestId = json.getString("id", null);
+        String review = json.getString("status", null);
+        
+
+        if (requestId == null || review == null || 
+            (!"APPROVED".equals(review) && !"REJECTED".equals(review))) {
+            throw new ClientException("ValidationError", "Invalid request ID or review status");
+        }
+        
+        GuestUserDao guestDao = new GuestUserDao();
+        GuestUser guestUser = guestDao.findById(requestId);
+        
+        if (guestUser == null) {
+            throw new ClientException("NotFoundError", "Guest access request not found");
+        }
+        
+        // Update guest request status
+        guestDao.updateStatus(requestId, review);
+        
+        return Response.ok()
+            .entity(Json.createObjectBuilder()
+                .add("result", "success")
+                .add("message", "Guest access request " + 
+                    (review.equals("APPROVED") ? "approved" : "rejected"))
+                .build())
+            .build();
+    }
+    
     @PUT
     public Response register(
         @FormParam("username") String username,
@@ -121,24 +256,6 @@ public class UserResource extends BaseResource {
         return Response.ok().entity(response.build()).build();
     }
 
-    /**
-     * Updates the current user informations.
-     *
-     * @api {post} /user Update the current user
-     * @apiName PostUser
-     * @apiGroup User
-     * @apiParam {String{8..50}} password Password
-     * @apiParam {String{1..100}} email E-mail
-     * @apiSuccess {String} status Status OK
-     * @apiError (client) ForbiddenError Access denied or connected as guest
-     * @apiError (client) ValidationError Validation error
-     * @apiPermission user
-     * @apiVersion 1.5.0
-     *
-     * @param password Password
-     * @param email E-Mail
-     * @return Response
-     */
     @POST
     public Response update(
         @FormParam("password") String password,
@@ -171,29 +288,6 @@ public class UserResource extends BaseResource {
         return Response.ok().entity(response.build()).build();
     }
 
-    /**
-     * Updates a user informations.
-     *
-     * @api {post} /user/:username Update a user
-     * @apiName PostUserUsername
-     * @apiGroup User
-     * @apiParam {String} username Username
-     * @apiParam {String{8..50}} password Password
-     * @apiParam {String{1..100}} email E-mail
-     * @apiParam {Number} storage_quota Storage quota (in bytes)
-     * @apiParam {Boolean} disabled Disabled status
-     * @apiSuccess {String} status Status OK
-     * @apiError (client) ForbiddenError Access denied
-     * @apiError (client) ValidationError Validation error
-     * @apiError (client) UserNotFound User not found
-     * @apiPermission admin
-     * @apiVersion 1.5.0
-     *
-     * @param username Username
-     * @param password Password
-     * @param email E-Mail
-     * @return Response
-     */
     @POST
     @Path("{username: [a-zA-Z0-9_@.-]+}")
     public Response update(
@@ -292,17 +386,8 @@ public class UserResource extends BaseResource {
         password = StringUtils.strip(password);
 
         // Get the user
-        UserDao userDao = new UserDao();
         User user = null;
-        if (Constants.GUEST_USER_ID.equals(username)) {
-            if (ConfigUtil.getConfigBooleanValue(ConfigType.GUEST_LOGIN)) {
-                // Login as guest
-                user = userDao.getActiveByUsername(Constants.GUEST_USER_ID);
-            }
-        } else {
-            // Login as a normal user
-            user = AuthenticationUtil.authenticate(username, password);
-        }
+        user = AuthenticationUtil.authenticate(username, password);
         if (user == null) {
             throw new ForbiddenClientException();
         }
