@@ -2998,3 +2998,21 @@ java.lang.NullPointerException: Cannot invoke "jakarta.persistence.EntityManager
 15 May 2025 11:09:34,452 INFO com.sismics.docs.core.service.FileSizeService.shutDown(FileSizeService.java:35) File size service shutting down 
 15 May 2025 11:09:50,974 INFO com.sismics.util.ClasspathScanner.findClasses(ClasspathScanner.java:48) Found 2 classes for AuthenticationHandler 
 15 May 2025 11:09:55,744 INFO com.sismics.docs.core.listener.async.DocumentCreatedAsyncListener.on(DocumentCreatedAsyncListener.java:35) Document created event: DocumentCreatedAsyncEvent{documentId=92e5a2e9-0e03-4982-9b4f-b41521b664fb} 
+15 May 2025 11:11:44,766 INFO com.sismics.docs.core.service.InboxService.shutDown(InboxService.java:57) Inbox service shutting down 
+15 May 2025 11:11:44,767 INFO com.sismics.docs.core.service.FileService.shutDown(FileService.java:44) File service shutting down 
+15 May 2025 11:11:56,400 INFO com.sismics.util.jpa.EMF.getEntityManagerProperties(EMF.java:67) Configuring EntityManager from hibernate.properties 
+15 May 2025 11:12:01,675 INFO com.sismics.util.jpa.DbOpenHelper.open(DbOpenHelper.java:57) Opening database and executing incremental updates 
+15 May 2025 11:12:01,678 INFO com.sismics.util.jpa.DbOpenHelper.open(DbOpenHelper.java:106) Found database version 31, new version is 31, executing database incremental update scripts 
+15 May 2025 11:12:01,678 INFO com.sismics.util.jpa.DbOpenHelper.open(DbOpenHelper.java:108) Database upgrade complete 
+15 May 2025 11:12:01,678 INFO com.sismics.util.jpa.EMF.getEntityManagerProperties(EMF.java:67) Configuring EntityManager from hibernate.properties 
+15 May 2025 11:12:02,735 INFO com.sismics.util.ClasspathScanner.findClasses(ClasspathScanner.java:48) Found 1 classes for IndexingHandler 
+15 May 2025 11:12:02,762 INFO com.sismics.docs.core.util.indexing.LuceneIndexingHandler.initLucene(LuceneIndexingHandler.java:129) Using RAM Lucene storage 
+15 May 2025 11:12:02,806 INFO com.sismics.docs.core.service.FileService.startUp(FileService.java:39) File service starting up 
+15 May 2025 11:12:02,808 INFO com.sismics.docs.core.service.InboxService.startUp(InboxService.java:52) Inbox service starting up 
+15 May 2025 11:12:02,808 INFO com.sismics.docs.core.service.FileSizeService.startUp(FileSizeService.java:30) File size service starting up 
+15 May 2025 11:12:03,048 INFO com.sismics.docs.core.service.FileSizeService.lambda$runOneIteration$0(FileSizeService.java:50) No more file to process, stopping the service 
+15 May 2025 11:12:03,051 INFO com.sismics.docs.core.service.FileSizeService.shutDown(FileSizeService.java:35) File size service shutting down 
+15 May 2025 11:12:40,876 INFO com.sismics.util.ClasspathScanner.findClasses(ClasspathScanner.java:48) Found 2 classes for AuthenticationHandler 
+15 May 2025 11:13:50,857 INFO com.sismics.docs.core.listener.async.DocumentCreatedAsyncListener.on(DocumentCreatedAsyncListener.java:35) Document created event: DocumentCreatedAsyncEvent{documentId=b4e03bc0-5598-48f7-aed7-fa02771b0e8c} 
+15 May 2025 11:27:01,716 INFO com.sismics.docs.core.service.InboxService.shutDown(InboxService.java:57) Inbox service shutting down 
+15 May 2025 11:27:01,719 INFO com.sismics.docs.core.service.FileService.shutDown(FileService.java:44) File service shutting down 
