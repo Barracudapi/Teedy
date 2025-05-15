@@ -15,11 +15,18 @@ public class GuestUserDao {
     
     public String create(GuestUser guestUser) {
         EntityManager entityManager = ThreadLocalContext.get().getEntityManager();
+        guestUser.setIdentifier("guest_" + generateRandomIdentifier());
         if (guestUser.getIdentifier() == null) {
-            guestUser.setIdentifier(UUID.randomUUID().toString());
+            guestUser.setIdentifier("guest_" + generateRandomIdentifier());
         }
+        
         entityManager.persist(guestUser);
         return guestUser.getIdentifier();
+    }
+    
+    private String generateRandomIdentifier() {
+        int randomInt = (int) (Math.random() * 1_000_000_000);
+        return String.format("%09d", randomInt); 
     }
 
     public List<GuestUser> findAll() {

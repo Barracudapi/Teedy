@@ -24,6 +24,7 @@ angular
       "pascalprecht.translate",
       "tmh.dynamicLocale",
       "ngOnboarding",
+      "chart.js",
     ]
   )
 
@@ -277,6 +278,15 @@ angular
             settings: {
               templateUrl: "partial/docs/settings.ldap.html",
               controller: "SettingsLdap",
+            },
+          },
+        })
+        .state("settings.activity", {
+          url: "/activity",
+          views: {
+            settings: {
+              templateUrl: "partial/docs/settings.activity.html",
+              controller: "SettingsActivity",
             },
           },
         })
@@ -568,7 +578,9 @@ angular
     $rootScope.$state = $state;
     $rootScope.$stateParams = $stateParams;
 
+    // Generate and persist a random token for the session if not already present
     if (!localStorage.randomToken) {
+      // 32-character alphanumeric token
       var chars =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
       var token = "";

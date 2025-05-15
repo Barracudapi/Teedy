@@ -15,7 +15,7 @@
   <table class="table table-bordered">
     <thead>
       <tr>
-        <th>Token</th>
+        <th>Username</th>
         <th>Timestamp</th>
         <th>Status</th>
         <th>Actions</th>
@@ -23,7 +23,7 @@
     </thead>
     <tbody>
       <tr ng-repeat="user in guestUsers">
-        <td>{{ user.token }}</td>
+        <td>{{ user.identifier }}</td>
         <td>{{ user.timestamp | date:'medium' }}</td>
         <td>{{ user.status }}</td>
         <td>

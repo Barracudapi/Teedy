@@ -137,14 +137,6 @@ public class UserResource extends BaseResource {
         return Response.ok().entity(responseBuilder.build()).build();
     }
 
-    /**
-     * Retrieves all guest access requests (admin only).
-     * @api {get} /user/guest_access_requests List all guest access requests
-     * @apiName GetGuestAccessRequests
-     * @apiGroup User
-     * @apiPermission admin
-     * @apiVersion 1.5.0
-     */
     @GET
     @Path("guest_access_requests")
     @Produces(MediaType.APPLICATION_JSON)
@@ -161,7 +153,7 @@ public class UserResource extends BaseResource {
         for (GuestUser guest : guestUsers) {
             requestsArray.add(Json.createObjectBuilder()
                 .add("id", guest.getId())
-                .add("token", guest.getToken())
+                .add("identifier", guest.getIdentifier())
                 .add("ip", guest.getIp())
                 .add("timestamp", guest.getTimestamp().getTime())
                 .add("status", guest.getStatus())
