@@ -1,6 +1,8 @@
 <h1>
   <span translate="settings.workflow.title"></span>
-  <a class="btn btn-primary" href="#/settings/workflow/add">{{ 'settings.workflow.add_workflow' | translate }}</a>
+  <a class="btn btn-primary" href="#/settings/workflow/add">
+    {{ 'settings.workflow.add_workflow' | translate }}
+  </a>
 </h1>
 
 <div class="row">
@@ -13,16 +15,294 @@
         </tr>
       </thead>
       <tbody>
-        <tr ng-repeat="workflow in workflows | orderBy: 'name'" ng-click="editWorkflow(workflow)"
-            ng-class="{ active: $stateParams.id == workflow.id }">
+        <tr
+          ng-repeat="workflow in workflows | orderBy: 'name'"
+          ng-click="editWorkflow(workflow)"
+          ng-class="{ active: $stateParams.id == workflow.id }"
+        >
           <td>{{ workflow.name }}</td>
           <td>{{ workflow.create_date | date: dateFormat }}</td>
         </tr>
       </tbody>
     </table>
   </div>
-
   <div class="col-md-8">
     <div ui-view="workflow"></div>
   </div>
 </div>
+
+<div class="row">
+  <div class="col-md-12">
+    <h2>{{ 'settings.user_activities.title' | translate }}</h2>
+    <p class="text-muted">
+      {{ 'settings.user_activities.subtitle' | translate }}
+    </p>
+  </div>
+</div>
+
+<!-- Gantt Chart -->
+<div class="row" ng-if="showGantt">
+  <div class="col-md-12">
+    <div class="panel panel-default">
+      <div class="panel-heading">
+        <h3 class="panel-title">
+          {{ 'settings.user_activities.gantt_chart' | translate }}
+        </h3>
+      </div>
+      <div class="panel-body">
+        <div ng-if="loadingActivities" class="text-center">
+          <span class="fas fa-spinner fa-spin"></span> {{
+          'settings.user_activities.loading' | translate }}
+        </div>
+
+        <div
+          ng-if="!loadingActivities && ganttData.data.length === 0"
+          class="text-center"
+        >
+          <p class="text-muted">
+            {{ 'settings.user_activities.no_activities' | translate }}
+          </p>
+        </div>
+
+        <div
+          ng-if="!loadingActivities && ganttData.data.length > 0"
+          class="gantt-chart-container"
+        >
+          <div class="gantt-header">
+            <div class="gantt-header-title">
+              {{ 'settings.user_activities.user' | translate }}
+            </div>
+            <div class="gantt-header-timeline">
+              <div class="gantt-timeline-scale">
+                <div
+                  class="gantt-timeline-cell"
+                  ng-repeat="date in getTimelineDates(ganttData.timeScale.from, ganttData.timeScale.to)"
+                >
+                  {{ date | date:'shortDate' }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="gantt-body">
+            <div class="gantt-row" ng-repeat="row in ganttData.data">
+              <div class="gantt-row-title">{{ row.name }}</div>
+              <div class="gantt-row-timeline">
+                <div
+                  class="gantt-task"
+                  ng-repeat="task in row.tasks"
+                  ng-style="getTaskStyle(task, ganttData.timeScale)"
+                >
+                  <div
+                    class="gantt-task-progress"
+                    ng-style="{'width': task.progress + '%', 'background-color': task.color}"
+                  ></div>
+                  <div class="gantt-task-content">
+                    {{ task.name }} ({{ task.progress }}%)
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-danger btn-xs delete-btn"
+                    ng-click="deleteActivity(task)"
+                  >
+                    {{ 'settings.user_activities.delete' | translate }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  .gantt-chart-container {
+    overflow-x: auto;
+    position: relative;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-top: 20px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    background-color: #fff; /* Adding a background color to differentiate from the page */
+  }
+
+  .gantt-header,
+  .gantt-row {
+    display: flex;
+    min-width: 1200px;
+  }
+
+  .gantt-header {
+    background-color: #f7f7f7;
+    border-bottom: 2px solid #e0e0e0;
+  }
+
+  .gantt-header-title,
+  .gantt-row-title {
+    flex: 0 0 200px;
+    padding: 15px;
+    background-color: #f5f5f5;
+    border-right: 1px solid #ddd;
+    font-weight: 600;
+    color: #333;
+    text-align: left;
+  }
+
+  .gantt-row-title {
+    display: flex;
+    align-items: center;
+    padding-top: 15px;
+    height: 100%;
+    border-bottom: 1px solid #eee;
+    background-color: #fafafa;
+  }
+
+  .gantt-header-timeline,
+  .gantt-row-timeline {
+    flex: 1;
+    position: relative;
+    min-height: 50px;
+    border-bottom: 1px solid #ddd;
+  }
+
+  .gantt-row-timeline {
+    min-height: 140px;
+    background-image: linear-gradient(
+      90deg,
+      rgba(0, 0, 0, 0.05) 1px,
+      transparent 1px
+    );
+    background-size: calc(100% / 15) 100%;
+    background-color: #f9f9f9; /* Slight background to make tasks stand out */
+  }
+
+  .gantt-timeline-scale {
+    display: flex;
+    border-bottom: 2px solid #ddd;
+    background-color: #f9f9f9;
+    height: 40px;
+  }
+
+  .gantt-timeline-cell {
+    flex: 1;
+    text-align: center;
+    padding: 10px 5px;
+    border-right: 1px solid #e0e0e0;
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+    transition: background-color 0.2s ease;
+  }
+
+  .gantt-timeline-cell:hover {
+    background-color: #f1f1f1;
+  }
+
+  .gantt-task {
+    position: absolute;
+    height: 30px;
+    border-radius: 4px;
+    background-color: #4caf50; /* Dynamic task color */
+    border: 1px solid #ddd;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    z-index: 1;
+    margin-right: 4px;
+    min-width: 100px;
+    padding-right: 30px; /* Adjusting padding to accommodate the button */
+    transition:
+      box-shadow 0.3s ease,
+      transform 0.3s ease;
+  }
+
+  .gantt-task:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    transform: translateY(-2px);
+    z-index: 2;
+  }
+
+  .gantt-task-progress {
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0.8;
+    background-color: #76c7c0; /* Task progress color */
+  }
+
+  .gantt-task-content {
+    position: relative;
+    display: flex;
+    justify-content: center; /* Horizontally center the content */
+    align-items: flex-start; /* Align the content to the top */
+    height: 100%; /* Make sure the content fills the task container */
+    flex-direction: column; /* Flex vertically */
+    line-height: 1.2;
+    z-index: 1;
+    padding: 5px 10px;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: 600;
+    color: #fff;
+    text-shadow: 0px 0px 2px rgba(0, 0, 0, 0.3);
+  }
+
+  .delete-btn {
+    position: absolute;
+    top: 50%;
+    right: 0px; /* Position it to the right side of the task */
+    transform: translateY(-50%); /* Vertically center the button */
+    z-index: 10;
+    background-color: red; /* Stronger visibility */
+    border-radius: 10%;
+    color: #fff;
+    padding: 2px;
+    cursor: pointer;
+    font-size: 8px;
+    border: none;
+    transition: background-color 0.3s ease;
+  }
+
+  .delete-btn:hover {
+    background-color: #d32f2f; /* Slightly darker red when hovered */
+  }
+
+  .delete-btn:focus {
+    outline: none;
+  }
+
+  .gantt-task-completed {
+    background-color: #9e9e9e; /* Color for completed tasks */
+  }
+
+  .gantt-task-pending {
+    background-color: #f39c12; /* Color for pending tasks */
+  }
+
+  @media screen and (max-width: 1200px) {
+    .gantt-header,
+    .gantt-row {
+      min-width: 800px; /* Adjusting width for smaller screens */
+    }
+  }
+
+  @media screen and (max-width: 768px) {
+    .gantt-header,
+    .gantt-row {
+      min-width: 100%;
+    }
+
+    .gantt-header-title,
+    .gantt-row-title {
+      font-size: 14px; /* Smaller text for smaller screens */
+    }
+
+    .gantt-timeline-cell {
+      font-size: 10px; /* Smaller text on timeline for compact view */
+    }
+  }
+</style>

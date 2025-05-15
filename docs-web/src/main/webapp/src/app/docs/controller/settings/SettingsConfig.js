@@ -6,7 +6,6 @@
 angular
   .module("docs")
   .controller("SettingsConfig", function ($scope, $rootScope, Restangular) {
-    // Get the app configuration
     Restangular.one("app")
       .get()
       .then(function (data) {
@@ -16,7 +15,6 @@ angular
         };
       });
 
-    // Enable/disable guest login
     $scope.changeGuestLogin = function (enabled) {
       Restangular.one("app")
         .post("guest_login", {
@@ -27,7 +25,6 @@ angular
         });
     };
 
-    // Enable/disable OCR
     $scope.changeOcrEnabled = function (enabled) {
       Restangular.one("app")
         .post("ocr", {
@@ -38,7 +35,6 @@ angular
         });
     };
 
-    // Fetch the current theme configuration
     Restangular.one("theme")
       .get()
       .then(function (data) {
@@ -119,7 +115,6 @@ angular
         });
     };
 
-    // Fetch guest access requests (admin only)
     $scope.guestUsers = [];
     $scope.loadGuestUsers = function () {
       Restangular.one("user/guest_access_requests")
@@ -133,7 +128,6 @@ angular
       $scope.loadGuestUsers();
     }
 
-    // Approve guest access request
     $scope.approveGuestUser = function (guest) {
       Restangular.one("user")
         .post(
@@ -150,7 +144,6 @@ angular
         });
     };
 
-    // Reject guest access request
     $scope.rejectGuestUser = function (guest) {
       Restangular.one("user")
         .post(

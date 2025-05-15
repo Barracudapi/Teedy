@@ -1,8 +1,5 @@
 "use strict";
 
-/**
- * Login controller.
- */
 angular
   .module("docs")
   .controller(

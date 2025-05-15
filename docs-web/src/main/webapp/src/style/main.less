@@ -78,8 +78,8 @@ ul.tag-tree {
   margin-bottom: 10px;
   display: flex;
 
-  &> li + li:before {
-    content: '/';
+  & > li + li:before {
+    content: "/";
   }
 
   li {
@@ -115,7 +115,7 @@ ul.tag-tree {
     border: none !important;
     font-size: 90%;
   }
-	
+
   tbody tr {
     cursor: pointer;
 
@@ -150,39 +150,39 @@ ul.tag-tree {
 
 // $http loader
 .loader {
-	position: relative;
-	top: -2px;
+  position: relative;
+  top: -2px;
 
-	&.loader-hide {
-	  visibility: hidden;
-	}
+  &.loader-hide {
+    visibility: hidden;
+  }
 }
 
 // Users list
 .table-users {
-	tbody tr {
+  tbody tr {
     cursor: pointer;
   }
 }
 
 // Logs list
 .table-logs {
-	tbody tr td {
+  tbody tr td {
     &:first-child {
       white-space: nowrap;
     }
-    
+
     .cell-message {
       word-wrap: break-word;
     }
-	}
+  }
 }
 
 // File view
 .modal-fileview {
-	top: 2%;
-	max-height: 96%;
-	overflow-y: scroll;
+  top: 2%;
+  max-height: 96%;
+  overflow-y: scroll;
 
   img {
     width: 100%;
@@ -262,7 +262,7 @@ ul.tag-tree {
       top: 50%;
       height: 100%;
       width: auto;
-      transform: translate(-50%,-50%);
+      transform: translate(-50%, -50%);
     }
   }
 }
@@ -276,7 +276,7 @@ ul.tag-tree {
 
 // Fields bound to datepicker
 input[readonly][datepicker-popup] {
-	cursor: pointer;
+  cursor: pointer;
 }
 
 // Share link
@@ -286,27 +286,27 @@ input[readonly].share-link {
 
 // Inline edition
 .inline-edit {
-	cursor: pointer;
-	display: block;
-	
-	span {
+  cursor: pointer;
+  display: block;
+
+  span {
     display: block;
-	}
-	
-	input {
-	  display: none;
-	  margin-bottom: 0;
-	}
-	
-	&.active {
+  }
+
+  input {
+    display: none;
+    margin-bottom: 0;
+  }
+
+  &.active {
     span {
-		  display: none;
-		}
-		
-		input {
-		  display: inline-block;
-		}
-	}
+      display: none;
+    }
+
+    input {
+      display: inline-block;
+    }
+  }
 }
 
 // Pagination
@@ -334,7 +334,10 @@ input[readonly].share-link {
 }
 
 // Dirty Bootstrap 3 fix, see https://github.com/twbs/bootstrap/issues/6686
-.row { margin: 0; padding: 0 }
+.row {
+  margin: 0;
+  padding: 0;
+}
 .navbar-nav.navbar-right:last-child {
   margin-right: auto;
 }
@@ -354,8 +357,10 @@ input[readonly].share-link {
 }
 
 .thumbnail-checked {
-  box-shadow: inset 0 1px 2px rgba(27,31,35,0.075), 0 0 0 0.2em rgba(3,102,214,0.3);
-  transition: box-shadow ease-in-out .15s;
+  box-shadow:
+    inset 0 1px 2px rgba(27, 31, 35, 0.075),
+    0 0 0 0.2em rgba(3, 102, 214, 0.3);
+  transition: box-shadow ease-in-out 0.15s;
 }
 
 .pointer {
@@ -407,7 +412,9 @@ input[readonly].share-link {
 .settings-menu {
   .panel-default {
     border: 1px solid #eee;
-    box-shadow: 0 7px 14px 0 rgba(50,50,93,.1), 0 3px 6px 0 rgba(0,0,0,.07);
+    box-shadow:
+      0 7px 14px 0 rgba(50, 50, 93, 0.1),
+      0 3px 6px 0 rgba(0, 0, 0, 0.07);
     border-radius: 4px;
 
     & > .panel-heading {
@@ -435,7 +442,9 @@ input[readonly].share-link {
   margin-bottom: 10px;
 
   .well {
-    box-shadow: 0 7px 14px 0 rgba(50,50,93,.1), 0 3px 6px 0 rgba(0,0,0,.07);
+    box-shadow:
+      0 7px 14px 0 rgba(50, 50, 93, 0.1),
+      0 3px 6px 0 rgba(0, 0, 0, 0.07);
     background: none;
     padding: 0;
     border-radius: 4px;
@@ -477,7 +486,8 @@ input[readonly].share-link {
     background: #444;
   }
 
-  &:active, &:focus {
+  &:active,
+  &:focus {
     text-decoration: none;
     color: #fff;
   }
@@ -538,19 +548,22 @@ input[readonly].share-link {
   display: flex;
 
   /* Align the bootstrap's container vertically */
-  -webkit-box-align : center;
-  -webkit-align-items : center;
-  -moz-box-align : center;
-  -ms-flex-align : center;
-  align-items : center;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  -moz-box-align: center;
+  -ms-flex-align: center;
+  align-items: center;
 }
 
 // Login
 .login-img-container {
-  background: url('../../api/theme/image/background') no-repeat center;
+  background: url("../../api/theme/image/background") no-repeat center;
   background-size: cover;
   height: 100%;
-  box-shadow: 0 0 0 1px rgba(136,152,170,.1), 0 15px 35px 0 rgba(49,49,93,.1), 0 5px 15px 0 rgba(0,0,0,.13);
+  box-shadow:
+    0 0 0 1px rgba(136, 152, 170, 0.1),
+    0 15px 35px 0 rgba(49, 49, 93, 0.1),
+    0 5px 15px 0 rgba(0, 0, 0, 0.13);
 }
 
 .login-box {
@@ -614,15 +627,15 @@ input[readonly].share-link {
   }
 }
 
-@keyframes pulse{
+@keyframes pulse {
   0% {
-    transform:scale(1.1);
+    transform: scale(1.1);
   }
-  50%{
-    transform:scale(0.8);
+  50% {
+    transform: scale(0.8);
   }
-  100%{
-    transform:scale(1.1);
+  100% {
+    transform: scale(1.1);
   }
 }
 
@@ -657,20 +670,35 @@ input[readonly].share-link {
 
 // BS customizations
 .btn {
-  transition: color .15s ease-in-out, background-color .15s ease-in-out, border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+  transition:
+    color 0.15s ease-in-out,
+    background-color 0.15s ease-in-out,
+    border-color 0.15s ease-in-out,
+    box-shadow 0.15s ease-in-out;
   font-weight: 500;
   border-radius: 4px;
-  box-shadow: 0 0 0 1px rgba(50,50,93,.1), 0 2px 5px 0 rgba(50,50,93,.08), 0 1px 1.5px 0 rgba(0,0,0,.07), 0 1px 2px 0 rgba(0,0,0,.08), 0 0 0 0 transparent;
+  box-shadow:
+    0 0 0 1px rgba(50, 50, 93, 0.1),
+    0 2px 5px 0 rgba(50, 50, 93, 0.08),
+    0 1px 1.5px 0 rgba(0, 0, 0, 0.07),
+    0 1px 2px 0 rgba(0, 0, 0, 0.08),
+    0 0 0 0 transparent;
 }
 
 .form-control {
   border-radius: 4px;
-  box-shadow: 0 0 0 1px rgba(49,49,93,.03), 0 2px 5px 0 rgba(49,49,93,.1), 0 1px 2px 0 rgba(0,0,0,.08);
+  box-shadow:
+    0 0 0 1px rgba(49, 49, 93, 0.03),
+    0 2px 5px 0 rgba(49, 49, 93, 0.1),
+    0 1px 2px 0 rgba(0, 0, 0, 0.08);
 }
 
 .dropdown-menu {
   border: none;
-  box-shadow: 0 0 0 1px rgba(136,152,170,.1), 0 15px 35px 0 rgba(49,49,93,.1), 0 5px 15px 0 rgba(0,0,0,.13);
+  box-shadow:
+    0 0 0 1px rgba(136, 152, 170, 0.1),
+    0 15px 35px 0 rgba(49, 49, 93, 0.1),
+    0 5px 15px 0 rgba(0, 0, 0, 0.13);
 }
 
 .navbar-default {
@@ -699,7 +727,9 @@ input[readonly].share-link {
 
 .well-3d {
   border: 1px solid #eee;
-  box-shadow: 0 7px 14px 0 rgba(50,50,93,.1), 0 3px 6px 0 rgba(0,0,0,.07);
+  box-shadow:
+    0 7px 14px 0 rgba(50, 50, 93, 0.1),
+    0 3px 6px 0 rgba(0, 0, 0, 0.07);
   background: none;
   border-radius: 4px;
 
@@ -733,8 +763,8 @@ input[readonly].share-link {
   word-wrap: break-word;
   background-color: #fff;
   background-clip: border-box;
-  border: 1px solid rgba(0,0,0,.125);
-  border-radius: .25em;
+  border: 1px solid rgba(0, 0, 0, 0.125);
+  border-radius: 0.25em;
   padding: 1.25em;
 }
 
@@ -750,4 +780,101 @@ input[readonly].share-link {
   width: 0;
   padding-left: 0;
   padding-right: 0;
+}
+
+// Progress bar improvements
+.progress {
+  position: relative;
+
+  .progress-bar {
+    min-width: 2em; // Ensure there's enough room for percent text
+    text-align: center;
+
+    &[style*="width: 0%"] {
+      color: #333; // Make text visible when bar is too narrow
+      min-width: 0;
+      padding-left: 5px;
+    }
+  }
+}
+
+// Document activity specific styling
+.document-activity-form {
+  .progress {
+    height: 24px;
+    margin-bottom: 10px;
+
+    .progress-bar {
+      line-height: 24px;
+      font-size: 14px;
+      text-align: center;
+    }
+  }
+
+  .help-block {
+    margin-top: 5px;
+    font-weight: 500;
+    display: block;
+    line-height: 1.5;
+  }
+
+  .control-label {
+    padding-top: 7px;
+    margin-bottom: 0;
+    text-align: right;
+  }
+
+  .form-group {
+    margin-bottom: 15px;
+    display: flex;
+  }
+
+  .col-sm-9 {
+    position: relative;
+  }
+
+  .text-success {
+    display: inline-block;
+    vertical-align: middle;
+    line-height: 34px;
+  }
+
+  input[type="range"] {
+    height: 34px;
+    padding: 6px 0;
+    cursor: pointer;
+
+    &:focus {
+      outline: none;
+    }
+  }
+
+  .status-container {
+    min-height: 22px;
+    margin-top: 5px;
+
+    .help-block {
+      margin: 0;
+    }
+  }
+}
+
+// Settings activity list styling
+.settings-activity-list {
+  .progress {
+    height: 18px;
+    margin-bottom: 5px;
+
+    .progress-bar {
+      line-height: 18px;
+      font-size: 12px;
+    }
+  }
+
+  .small {
+    display: block;
+    margin-top: 3px;
+    font-weight: 500;
+    color: #555;
+  }
 }
