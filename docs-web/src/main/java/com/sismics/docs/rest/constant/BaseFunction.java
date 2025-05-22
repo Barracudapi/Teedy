@@ -3,12 +3,12 @@ package com.sismics.docs.rest.constant;
 /**
  * Base functions.
  *
- * @author jtremeaux 
+ * @author jtremeaux
  */
 public enum BaseFunction {
 
     /**
-     * Allows the user to use the admin fonctions.
+     * Allows the user to use the admin functions.
      */
     ADMIN
 }

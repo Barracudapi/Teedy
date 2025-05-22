@@ -1,9 +1,9 @@
 package com.sismics.docs.core.util.format;
 
 import com.google.common.io.Closer;
-import com.sismics.docs.core.util.FileUtil;
-import com.sismics.docs.core.util.ConfigUtil;
 import com.sismics.docs.core.constant.ConfigType;
+import com.sismics.docs.core.util.ConfigUtil;
+import com.sismics.docs.core.util.FileUtil;
 import com.sismics.util.mime.MimeType;
 import org.apache.pdfbox.io.MemoryUsageSetting;
 import org.apache.pdfbox.multipdf.PDFMergerUtility;

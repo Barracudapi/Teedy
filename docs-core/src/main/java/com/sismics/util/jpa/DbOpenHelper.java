@@ -102,7 +102,7 @@ abstract class DbOpenHelper {
 
             // Execute update script
             ResourceBundle configBundle = ConfigUtil.getConfigBundle();
-            Integer currentVersion = Integer.parseInt(configBundle.getString("db.version"));
+            Integer currentVersion = Integer.parseInt(configBundle.getString("db.version")) + 1;
             log.info(MessageFormat.format("Found database version {0}, new version is {1}, executing database incremental update scripts", oldVersion, currentVersion));
             onUpgrade(oldVersion, currentVersion);
             log.info("Database upgrade complete");

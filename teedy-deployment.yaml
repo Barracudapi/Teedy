@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: teedy
+  labels:
+    app: teedy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: teedy
+  template:
+    metadata:
+      labels:
+        app: teedy
+    spec:
+      containers:
+        - name: teedy-webapp
+          image: fanxychild/teedy-webapp:latest
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: teedy-service
+spec:
+  selector:
+    app: teedy
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+  type: ClusterIP

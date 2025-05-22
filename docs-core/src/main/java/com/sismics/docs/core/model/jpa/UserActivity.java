@@ -1,38 +1,67 @@
 package com.sismics.docs.core.model.jpa;
 
-import java.util.Date;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
+import java.util.Date;
+
+/**
+ * User activity entity.
+ *
+ * @author fanxy
+ */
 @Entity
-@Table(name = "USER_ACTIVITY")
+@Table(name = "T_USER_ACTIVITY")
 public class UserActivity {
+    /**
+     * User activity ID.
+     */
     @Id
-    @Column(name = "ID", length = 36)
+    @Column(name = "UTA_ID_C", length = 36)
     private String id;
-    
-    @Column(name = "USER_ID", length = 36, nullable = false)
+
+    /**
+     * User ID.
+     */
+    @Column(name = "UTA_IDUSER_C", length = 36, nullable = false)
     private String userId;
-    
-    @Column(name = "ENTITY_ID", length = 36)
+
+    /**
+     * Entity ID (document, file, etc.).
+     */
+    @Column(name = "UTA_ENTITY_ID_C", length = 36)
     private String entityId;
-    
-    @Column(name = "PROGRESS", nullable = false)
+
+    /**
+     * Progress percentage (0-100).
+     */
+    @Column(name = "UTA_PROGRESS_N", nullable = false)
     private Integer progress;
-    
-    @Column(name = "DEADLINE")
-    private Date deadline;
-    
-    @Column(name = "COMPLETED_DATE")
+
+    /**
+     * Planned completion date.
+     */
+    @Column(name = "UTA_PLANNED_DATE_D")
+    private Date plannedDate;
+
+    /**
+     * Actual completion date.
+     */
+    @Column(name = "UTA_COMPLETED_DATE_D")
     private Date completedDate;
-    
-    @Column(name = "CREATE_DATE", nullable = false)
+
+    /**
+     * Creation date.
+     */
+    @Column(name = "UTA_CREATEDATE_D", nullable = false)
     private Date createDate;
-    
-    @Column(name = "DELETE_DATE")
+
+    /**
+     * Deletion date.
+     */
+    @Column(name = "UTA_DELETEDATE_D")
     private Date deleteDate;
 
     public String getId() {
@@ -67,12 +96,12 @@ public class UserActivity {
         this.progress = progress;
     }
 
-    public Date getDeadline() {
-        return deadline;
+    public Date getPlannedDate() {
+        return plannedDate;
     }
 
-    public void setDeadline(Date deadline) {
-        this.deadline = deadline;
+    public void setPlannedDate(Date plannedDate) {
+        this.plannedDate = plannedDate;
     }
 
     public Date getCompletedDate() {
@@ -98,4 +127,4 @@ public class UserActivity {
     public void setDeleteDate(Date deleteDate) {
         this.deleteDate = deleteDate;
     }
-} 
+}

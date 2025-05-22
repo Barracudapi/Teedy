@@ -1,7 +1,19 @@
 package com.sismics.docs.core.dao.criteria;
 
+/**
+ * User activity criteria.
+ *
+ * @author fanxy
+ */
 public class UserActivityCriteria {
+    /**
+     * User ID.
+     */
     private String userId;
+
+    /**
+     * Entity ID.
+     */
     private String entityId;
 
     public String getUserId() {
@@ -21,4 +33,4 @@ public class UserActivityCriteria {
         this.entityId = entityId;
         return this;
     }
-} 
+}

@@ -1,16 +1,61 @@
 package com.sismics.docs.core.dao.dto;
 
+/**
+ * User activity DTO.
+ *
+ * @author fanxy
+ */
 public class UserActivityDto {
+    /**
+     * Activity ID.
+     */
     private String id;
+
+    /**
+     * User ID.
+     */
     private String userId;
+
+    /**
+     * User name.
+     */
     private String username;
+
+    /**
+     * Activity type.
+     */
+    private String activityType;
+
+    /**
+     * Entity ID.
+     */
     private String entityId;
+
+    /**
+     * Entity name.
+     */
     private String entityName;
+
+    /**
+     * Progress percentage (0-100).
+     */
     private Integer progress;
-    private Long deadlineTimestamp;
+
+    /**
+     * Planned date timestamp.
+     */
+    private Long plannedDateTimestamp;
+
+    /**
+     * Completed date timestamp.
+     */
     private Long completedDateTimestamp;
+
+    /**
+     * Creation date timestamp.
+     */
     private Long createTimestamp;
-    
+
     public String getId() {
         return id;
     }
@@ -33,6 +78,14 @@ public class UserActivityDto {
 
     public void setUsername(String username) {
         this.username = username;
+    }
+
+    public String getActivityType() {
+        return activityType;
+    }
+
+    public void setActivityType(String activityType) {
+        this.activityType = activityType;
     }
 
     public String getEntityId() {
@@ -59,12 +112,12 @@ public class UserActivityDto {
         this.progress = progress;
     }
 
-    public Long getDeadlineTimestamp() {
-        return deadlineTimestamp;
+    public Long getPlannedDateTimestamp() {
+        return plannedDateTimestamp;
     }
 
-    public void setDeadlineTimestamp(Long deadlineTimestamp) {
-        this.deadlineTimestamp = deadlineTimestamp;
+    public void setPlannedDateTimestamp(Long plannedDateTimestamp) {
+        this.plannedDateTimestamp = plannedDateTimestamp;
     }
 
     public Long getCompletedDateTimestamp() {
@@ -82,4 +135,4 @@ public class UserActivityDto {
     public void setCreateTimestamp(Long createTimestamp) {
         this.createTimestamp = createTimestamp;
     }
-} 
+}

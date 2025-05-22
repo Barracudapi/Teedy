@@ -1,0 +1,80 @@
+<style>
+    /* No navbar in signup screen */
+    .navbar {
+        display: none;
+    }
+
+    /* Absolute positioned footer on top of the login background */
+    .footer {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        border: none;
+    }
+
+    @media screen and (min-width: 768px) {
+        .footer {
+            width: 50%;
+        }
+    }
+
+    /* Smaller links everywhere on login */
+    a {
+        font-size: 90%;
+        color: #666;
+    }
+</style>
+
+<div class="row vertical-center">
+  <div class="col-sm-6 col-xs-12 login-box">
+    <div class="row">
+      <div class="col-lg-offset-4 col-lg-4 col-xs-offset-1 col-xs-10">
+        <img src="img/title.png" class="img-responsive"/>
+
+        <form>
+          <div class="form-group">
+            <label class="sr-only" for="inputUsername">Username</label>
+            <input class="form-control" type="text" id="inputUsername" name="username"
+                   placeholder="Username" ng-model="user.username"/>
+          </div>
+
+          <div class="form-group">
+            <label class="sr-only" for="inputPassword">Password</label>
+            <input class="form-control" type="password" id="inputPassword" name="password"
+                   placeholder="Password" ng-model="user.password"/>
+          </div>
+
+          <p class="text-danger text-center" ng-if="errorMessage">{{ errorMessage }}</p>
+
+          <span class="help-block" ng-if="codeRequired">
+            Validation code required
+            <span class="fas fa-question-circle" title="Validation code"></span>
+          </span>
+          <div class="form-group" ng-if="codeRequired">
+            <label class="sr-only" for="inputCode">Validation code</label>
+            <input class="form-control" type="text" id="inputCode" name="code"
+                   placeholder="Validation code" ng-model="user.code"/>
+          </div>
+
+          <p class="text-center" ng-if="registrationStatus === 1">
+            <span class="fas fa-spinner fa-spin"></span> Request sent! Waiting for the admin's approval...
+          </p>
+          <p class="text-center" ng-if="registrationStatus === 3">
+            <span class="fas fa-times-circle text-danger"></span> Your registration was rejected!
+          </p>
+
+          <button type="submit" class="btn btn-primary btn-block" ng-click="registerAccount()">
+            <span class="fas fa-user"></span> Register
+          </button>
+
+          <p class="text-center" style="margin-top: 10px;">
+            Have an account? <a href ng-click="goToLogin()">Log in!</a>
+          </p>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="login-img-container col-sm-6 hidden-xs"></div>
+</div>
